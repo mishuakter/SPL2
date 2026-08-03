@@ -6,13 +6,12 @@ import '../../../../core/providers/language_provider.dart';
 import '../widgets/mood_selector_widget.dart';
 import '../widgets/progress_summary_card.dart';
 import '../widgets/quick_actions_grid.dart';
-import '../widgets/emergency_unit_banner.dart';
 import '../widgets/my_courses_list.dart';
 import '../../../mood/presentation/screens/progress_details_screen.dart';
 import '../../../hub/presentation/screens/knowledge_hub_screen.dart';
-import '../../../hub/presentation/screens/mind_games_screen.dart';
+import '../../../mind_games/mind_games_hub_screen.dart';
 import '../../../courses/presentation/screens/course_catalog_screen.dart';
-import '../../../courses/presentation/screens/course_detail_screen.dart';
+import '../../../appointments/specialist_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -26,13 +25,24 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text(
-          'আশ্বাস',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-          ),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              height: 36,
+              width: 36,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'আশ্বাস',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
         ),
         actions: [
           Stack(
@@ -53,7 +63,7 @@ class DashboardScreen extends StatelessWidget {
                     width: 10,
                     height: 10,
                     decoration: const BoxDecoration(
-                      color: AppColors.emergency,
+                      color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -75,28 +85,7 @@ class DashboardScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // User Greeting Header (Matching Figma Page 4)
-                    Row(
-                      children: [
-                        Text(
-                          isBn ? 'স্বাগতম!' : 'Welcome back! 👋',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Saturday, July 25',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
 
                     // 1. Mood Tracker Sentiment Card
                     const MoodSelectorWidget(),
@@ -124,17 +113,22 @@ class DashboardScreen extends StatelessWidget {
                         } else if (route == 'mind_game') {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const MindGamesScreen()),
+                            MaterialPageRoute(builder: (_) => const MindGamesHubScreen()),
                           );
                         } else if (route == 'browse_courses') {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const CourseCatalogScreen(
-                                categoryId: 'FIRST_TIME_MOTHER',
-                                categoryTitle: 'First Time Mother',
+                                categoryId: 'ALL',
+                                categoryTitle: 'Browse Courses',
                               ),
                             ),
+                          );
+                        } else if (route == 'book_session') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SpecialistListScreen()),
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -145,28 +139,15 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // 4. Big Red Emergency Unit Banner Button
-                    EmergencyUnitBanner(
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Emergency Hotline Triggered: Connecting to specialist...'),
-                            backgroundColor: AppColors.emergency,
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-
-                    // 5. My Courses Section
+                    // 4. My Courses Section
                     MyCoursesList(
                       onViewAll: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const CourseCatalogScreen(
-                              categoryId: 'FIRST_TIME_MOTHER',
-                              categoryTitle: 'First Time Mother',
+                              categoryId: 'POSTPARTUM_DEPRESSION',
+                              categoryTitle: 'Postpartum Depression',
                             ),
                           ),
                         );

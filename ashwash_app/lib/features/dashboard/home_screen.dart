@@ -6,6 +6,7 @@ import '../../core/localization/app_language_provider.dart';
 import '../mood/mood_tracking_screen.dart';
 import '../knowledge_hub/knowledge_hub_screen.dart';
 import '../courses/courses_screen.dart';
+import '../courses/presentation/screens/course_catalog_screen.dart';
 import '../appointments/specialist_list_screen.dart';
 import '../profile/report_screen.dart';
 import '../mind_games/mind_games_hub_screen.dart';
@@ -28,9 +29,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isBn ? 'আশ্বাস' : 'Ashwash',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: AppColors.primary),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              height: 36,
+              width: 36,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              isBn ? 'আশ্বাস' : 'Ashwash',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: AppColors.primary),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -58,17 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
-            Text(
-              isBn ? 'স্বাগতম! 👋' : 'Welcome back! 👋',
-              style: AppTypography.heading1(context),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isBn ? 'শনিবার, ২৫ জুলাই' : 'Saturday, July 25',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
             // How are you feeling today? (Mood Widget)
             Container(
@@ -218,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icons.school_rounded,
                   AppColors.secondary,
                   'assets/images/courses_browse_icon.jpg',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CoursesScreen())),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CourseCatalogScreen(categoryId: 'ALL', categoryTitle: 'Browse Courses'))),
                 ),
                 _buildQuickActionCard(
                   context,
@@ -238,15 +240,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(isBn ? 'আমার কোর্সসমূহ' : 'My Courses', style: AppTypography.heading2(context)),
                 TextButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CoursesScreen())),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CourseCatalogScreen(categoryId: 'ALL', categoryTitle: 'Browse Courses'))),
                   child: Text(isBn ? 'সব দেখুন' : 'View All', style: const TextStyle(color: AppColors.primary)),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            _buildCourseProgressCard(context, 'New Mother Wellness Program', '2/5 lessons', 0.4, '40%'),
-            const SizedBox(height: 12),
-            _buildCourseProgressCard(context, 'Postpartum Mental Health', '1/2 lessons', 0.5, '50%'),
+            _buildCourseProgressCard(context, 'Postpartum Depression Recovery Program', '2/17 lessons', 0.25, '25%'),
           ],
         ),
       ),

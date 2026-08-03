@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/localization/app_language_provider.dart';
+import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_service.dart';
+import '../../core/providers/specialist_provider.dart';
 import '../../data/models/specialist_model.dart';
 import '../dashboard/main_navigation_screen.dart';
 
@@ -154,20 +157,24 @@ class _BookingScreenState extends State<BookingScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade200, width: isSelected ? 2 : 1),
                   ),
-                  child: RadioListTile<String>(
-                    activeColor: AppColors.primary,
-                    title: Row(
-                      children: [
-                        Text(m['icon']!, style: const TextStyle(fontSize: 20)),
-                        const SizedBox(width: 10),
-                        Text(m['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ],
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    child: RadioListTile<String>(
+                      activeColor: AppColors.primary,
+                      title: Row(
+                        children: [
+                          Text(m['icon']!, style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 10),
+                          Text(m['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      value: m['name']!,
+                      groupValue: _selectedPaymentMethod,
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedPaymentMethod = val);
+                      },
                     ),
-                    value: m['name']!,
-                    groupValue: _selectedPaymentMethod,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedPaymentMethod = val);
-                    },
                   ),
                 );
               }).toList(),
@@ -183,8 +190,36 @@ class _BookingScreenState extends State<BookingScreen> {
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: () {
-                  _showSuccessDialog(context, isBn);
+                onPressed: () async {
+                  final specProvider = Provider.of<SpecialistProvider>(context, listen: false);
+                  final appDateStr = '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}';
+                  
+                  try {
+                    await ApiService.post(ApiEndpoints.bookings, {
+                      'specialist_id': widget.specialist.id,
+                      'appointment_date': '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
+                      'time_slot': _selectedTimeSlot,
+                      'status': 'confirmed',
+                      'notes': 'Booked with ${widget.specialist.name}',
+                    });
+                  } catch (_) {}
+
+                  specProvider.addAppointment(
+                    SpecialistAppointmentModel(
+                      id: 'app_${DateTime.now().millisecondsSinceEpoch}',
+                      patientId: 'pat_new_${DateTime.now().millisecondsSinceEpoch}',
+                      patientName: 'Patient User (Booked Session)',
+                      patientAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
+                      date: appDateStr,
+                      timeSlot: _selectedTimeSlot,
+                      category: widget.specialist.specialization,
+                      status: 'confirmed',
+                      meetingLink: 'https://meet.google.com/ash-wash-wellness-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+                      notes: 'Booked session with ${widget.specialist.name}',
+                    ),
+                  );
+
+                  if (mounted) _showSuccessDialog(context, isBn);
                 },
                 child: Text(
                   isBn ? 'বুকিং নিশ্চিত করুন (৳${widget.specialist.feeBdt})' : 'Confirm Booking (৳${widget.specialist.feeBdt})',

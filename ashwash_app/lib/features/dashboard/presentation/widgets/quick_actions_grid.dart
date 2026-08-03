@@ -17,25 +17,25 @@ class QuickActionsGrid extends StatelessWidget {
       {
         'id': 'knowledge_hub',
         'title': isBn ? 'নলেজ হাব' : 'Knowledge Hub',
-        'icon': Icons.menu_book_rounded,
+        'imageAsset': 'assets/images/knowledge_hub_icon.jpg',
         'bgColor': const Color(0xFF6366F1), // Indigo
       },
       {
         'id': 'mind_game',
         'title': isBn ? 'মাইন্ড গেম' : 'Mind Game',
-        'icon': Icons.sports_esports_rounded,
+        'imageAsset': 'assets/images/mind_games_icon.jpg',
         'bgColor': const Color(0xFF8B5CF6), // Purple
       },
       {
         'id': 'browse_courses',
         'title': isBn ? 'কোর্স ব্রাউজ' : 'Browse Courses',
-        'icon': Icons.collections_bookmark_rounded,
+        'imageAsset': 'assets/images/courses_browse_icon.jpg',
         'bgColor': const Color(0xFF0284C7), // Blue/Cyan
       },
       {
         'id': 'book_session',
         'title': isBn ? 'সেশন বুকিং' : 'Book Session',
-        'icon': Icons.calendar_today_rounded,
+        'imageAsset': 'assets/images/specialist_consult_icon.jpg',
         'bgColor': const Color(0xFFEC4899), // Pink
       },
     ];
@@ -82,19 +82,30 @@ class QuickActionsGrid extends StatelessWidget {
                   onTap: () => onActionTap(action['id']),
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: Icon(
-                            action['icon'],
-                            color: Colors.white,
-                            size: 24,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(
+                              action['imageAsset'],
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),

@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/language_provider.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../../data/models/category_model.dart';
 
-import '../../navigation/presentation/screens/main_navigation_screen.dart';
+import '../../../navigation/presentation/screens/main_navigation_screen.dart';
 
 class CategorySelectionScreen extends StatefulWidget {
   const CategorySelectionScreen({super.key});
@@ -20,8 +21,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _selectedCategoryId = authProvider.currentUser?.selectedCategory ?? 'FIRST_TIME_MOTHER';
+    _selectedCategoryId = '1';
   }
 
   Future<void> _saveAndProceed(String categoryId) async {
@@ -39,7 +39,9 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
 
   String _getCategoryTitle(String id) {
     try {
-      return CategoryModel.defaultCategories.firstWhere((c) => c.id == id).title;
+      final categories = ApiService().getMockCategories();
+      final cat = categories.firstWhere((c) => c.id.toString() == id);
+      return cat.titleEn;
     } catch (_) {
       return id;
     }
@@ -49,9 +51,10 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   Widget build(BuildContext context) {
     final langProvider = Provider.of<LanguageProvider>(context);
     final isBn = langProvider.isBangla;
-    final categories = CategoryModel.defaultCategories;
+    final categories = ApiService().getMockCategories();
 
     return Scaffold(
+
       body: SafeArea(
         child: Column(
           children: [
@@ -92,16 +95,23 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
                   final cat = categories[index];
-                  final isSelected = _selectedCategoryId == cat.id;
+                  final catIdStr = cat.id.toString();
+                  final isSelected = _selectedCategoryId == catIdStr;
+
+                  IconData iconData = Icons.favorite_rounded;
+                  if (cat.icon == 'mother') iconData = Icons.family_restroom_rounded;
+                  if (cat.icon == 'people') iconData = Icons.people_alt_rounded;
+                  if (cat.icon == 'briefcase') iconData = Icons.work_rounded;
+                  if (cat.icon == 'school') iconData = Icons.school_rounded;
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: cat.cardColor,
+                      color: cat.color,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: cat.cardColor.withOpacity(0.3),
+                          color: cat.color.withOpacity(0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -113,7 +123,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () => _saveAndProceed(cat.id),
+                        onTap: () => _saveAndProceed(catIdStr),
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
                           padding: const EdgeInsets.all(20.0),
@@ -128,7 +138,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  cat.icon,
+                                  iconData,
                                   color: Colors.white,
                                   size: 28,
                                 ),
@@ -141,7 +151,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      cat.title,
+                                      isBn ? cat.titleBn : cat.titleEn,
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -150,7 +160,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      cat.description,
+                                      isBn ? cat.descriptionBn : cat.descriptionEn,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.white.withOpacity(0.9),
@@ -175,6 +185,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                       ),
                     ),
                   );
+
                 },
               ),
             ),

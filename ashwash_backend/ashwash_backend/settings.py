@@ -1,8 +1,12 @@
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# --- ADD THIS: Tell Django where to find local apps ---
+sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 SECRET_KEY = 'django-insecure-ashwash-mental-wellness-secret-key-production-ready'
 
@@ -33,6 +37,7 @@ INSTALLED_APPS = [
     'apps.community',
     'apps.payments',
     'apps.dashboard',
+    'apps.notifications',
 ]
 
 MIDDLEWARE = [
@@ -66,10 +71,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ashwash_backend.wsgi.application'
 
+# --- Database Configuration (MySQL Only) ---
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'ashwash_db',
+        'USER': 'root',
+        'PASSWORD': '',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 

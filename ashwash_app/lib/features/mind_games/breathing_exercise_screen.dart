@@ -2,9 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_typography.dart';
 import '../../core/localization/app_language_provider.dart';
-import '../../core/services/mind_games_repository.dart';
+import '../../core/services/game_score_service.dart';
 
 class BreathingExerciseScreen extends StatefulWidget {
   const BreathingExerciseScreen({Key? key}) : super(key: key);
@@ -14,310 +13,411 @@ class BreathingExerciseScreen extends StatefulWidget {
 }
 
 class _BreathingExerciseScreenState extends State<BreathingExerciseScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _scaleAnim;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
 
-  Timer? _timer;
-  int _secondsElapsed = 0;
+  Timer? _phaseTimer;
+  Timer? _totalDurationTimer;
+
+  int _currentPhaseIndex = 0; // 0: Inhale (4s), 1: Hold (4s), 2: Exhale (4s)
+  int _secondsLeftInPhase = 4;
   int _completedCycles = 0;
-  int _score = 0;
-  bool _isPlaying = false;
-  String _phaseTextEn = 'Press Start to Begin';
-  String _phaseTextBn = 'শুরু করতে স্টার্ট চাপুন';
+  int _totalTimeSeconds = 0;
+  bool _isPlaying = true;
+  bool _isFinished = false;
 
-  final MindGamesRepository _repo = MindGamesRepository();
+  final List<String> _phasesEn = ['Inhale...', 'Hold...', 'Exhale...'];
+  final List<String> _phasesBn = ['শ্বাস নিন...', 'ধরে রাখুন...', 'শ্বাস ছাড়ুন...'];
+  final List<Color> _phaseColors = [
+    const Color(0xFF8B5CF6), // Purple Inhale
+    const Color(0xFF0EA5E9), // Cyan Hold
+    const Color(0xFF10B981), // Emerald Exhale
+  ];
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     );
 
-    _scaleAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.3).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
+
+    _startExercise();
   }
 
   void _startExercise() {
-    setState(() {
-      _isPlaying = true;
-      _secondsElapsed = 0;
-      _completedCycles = 0;
-      _score = 0;
-    });
+    _controller.forward();
+    _phaseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!_isPlaying) return;
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
       setState(() {
-        _secondsElapsed++;
+        _secondsLeftInPhase--;
+        _totalTimeSeconds++;
       });
-    });
 
-    _runBreathingCycle();
+      if (_secondsLeftInPhase <= 0) {
+        _nextPhase();
+      }
+    });
   }
 
-  void _runBreathingCycle() async {
-    if (!_isPlaying || !mounted) return;
-
-    // Phase 1: Inhale (4s)
+  void _nextPhase() {
     setState(() {
-      _phaseTextEn = 'Inhale deeply... (4s)';
-      _phaseTextBn = 'দীর্ঘ শ্বাস নিন... (৪ সে)';
-    });
-    _animController.forward(from: 0.0);
-    await Future.delayed(const Duration(seconds: 4));
-    if (!_isPlaying || !mounted) return;
+      _currentPhaseIndex = (_currentPhaseIndex + 1) % 3;
+      _secondsLeftInPhase = 4;
 
-    // Phase 2: Hold (4s)
-    setState(() {
-      _phaseTextEn = 'Hold your breath... (4s)';
-      _phaseTextBn = 'শ্বাস ধরে রাখুন... (৪ সে)';
+      if (_currentPhaseIndex == 0) {
+        _completedCycles++;
+        _controller.forward(from: 0.0);
+      } else if (_currentPhaseIndex == 1) {
+        // Hold: keep circle static at peak scale
+      } else if (_currentPhaseIndex == 2) {
+        _controller.reverse(from: 1.0);
+      }
     });
-    await Future.delayed(const Duration(seconds: 4));
-    if (!_isPlaying || !mounted) return;
-
-    // Phase 3: Exhale (4s)
-    setState(() {
-      _phaseTextEn = 'Exhale slowly... (4s)';
-      _phaseTextBn = 'ধীরে ধীরে শ্বাস ছাড়ুন... (৪ সে)';
-    });
-    _animController.reverse();
-    await Future.delayed(const Duration(seconds: 4));
-    if (!_isPlaying || !mounted) return;
-
-    // Cycle Completed
-    setState(() {
-      _completedCycles++;
-      _score += 10;
-    });
-
-    // Continue Next Cycle
-    _runBreathingCycle();
   }
 
-  void _stopExercise() async {
-    _timer?.cancel();
-    _animController.stop();
+  void _togglePlayPause() {
     setState(() {
-      _isPlaying = false;
+      _isPlaying = !_isPlaying;
+      if (_isPlaying) {
+        if (_currentPhaseIndex == 0) _controller.forward();
+        if (_currentPhaseIndex == 2) _controller.reverse();
+      } else {
+        _controller.stop();
+      }
     });
+  }
 
-    await _repo.saveGameScore(
-      gameId: 'breathing',
-      score: _score,
-      durationSeconds: _secondsElapsed,
+  Future<void> _finishExercise() async {
+    _phaseTimer?.cancel();
+    _controller.stop();
+
+    final int finalScore = _completedCycles * 10;
+    final gameData = await GameScoreService.saveScore(
+      gameId: 'breathing_exercise',
+      score: finalScore,
+      durationSeconds: _totalTimeSeconds,
     );
 
+    setState(() {
+      _isFinished = true;
+    });
+
     if (mounted) {
-      _showResultModal();
+      _showResultDialog(finalScore, gameData);
     }
   }
 
-  void _showResultModal() {
+  String _getRating(int cycles, bool isBn) {
+    if (cycles >= 5) return isBn ? 'চমৎকার! (Excellent)' : 'Excellent';
+    if (cycles >= 3) return isBn ? 'খুব ভালো! (Good)' : 'Good';
+    return isBn ? 'আরও চর্চা প্রয়োজন (Needs Practice)' : 'Needs Practice';
+  }
+
+  void _showResultDialog(int score, GameScoreData gameData) {
     final isBn = Provider.of<AppLanguageProvider>(context, listen: false).isBangla;
+    final rating = _getRating(_completedCycles, isBn);
 
-    String ratingEn = 'Needs Practice';
-    String ratingBn = 'অনুশীলন প্রয়োজন';
-    Color ratingColor = AppColors.warning;
-
-    if (_completedCycles >= 5) {
-      ratingEn = 'Excellent!';
-      ratingBn = 'চমৎকার!';
-      ratingColor = AppColors.success;
-    } else if (_completedCycles >= 3) {
-      ratingEn = 'Good Job!';
-      ratingBn = 'ভালো কাজ!';
-      ratingColor = AppColors.primary;
-    }
-
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        title: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3E8FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.self_improvement_rounded, color: Color(0xFFA855F7), size: 40),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              rating,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F172A)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isBn ? 'আপনার মন এখন প্রশান্ত ও শান্ত!' : 'Your mind is now calm and relaxed!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAFAFA),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  _buildResultRow(isBn ? 'মোট সাইকেল' : 'Completed Cycles', '$_completedCycles'),
+                  const Divider(height: 16),
+                  _buildResultRow(isBn ? 'অর্জিত স্কোর' : 'Score Earned', '+$score Points'),
+                  const Divider(height: 16),
+                  _buildResultRow(isBn ? 'সেরা স্কোর' : 'Best Score', '${gameData.bestScore} Points'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: ratingColor.withOpacity(0.15), shape: BoxShape.circle),
-                child: Icon(Icons.sentiment_very_satisfied_rounded, color: ratingColor, size: 48),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                isBn ? ratingBn : ratingEn,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ratingColor),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                isBn
-                    ? 'আপনি $_completedCycles টি পূর্ণ শ্বাস-প্রশ্বাসের চক্র সম্পন্ন করেছেন!'
-                    : 'You completed $_completedCycles full breathing cycles!',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star_rounded, color: AppColors.warning),
-                    const SizedBox(width: 8),
-                    Text(
-                      isBn ? 'অর্জিত স্কোর: +$_score' : 'Score Earned: +$_score',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ],
+              Expanded(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text(isBn ? 'হোম পেজ' : 'Exit', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                 ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
+              Expanded(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
-                    Navigator.pop(context);
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _completedCycles = 0;
+                      _totalTimeSeconds = 0;
+                      _currentPhaseIndex = 0;
+                      _secondsLeftInPhase = 4;
+                      _isPlaying = true;
+                      _isFinished = false;
+                    });
+                    _startExercise();
                   },
-                  child: Text(isBn ? 'সম্পন্ন' : 'Done', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(isBn ? 'আবার খেলুন' : 'Replay', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
+      ],
     );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _animController.dispose();
+    _phaseTimer?.cancel();
+    _totalDurationTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isBn = Provider.of<AppLanguageProvider>(context).isBangla;
+    final currentPhaseText = isBn ? _phasesBn[_currentPhaseIndex] : _phasesEn[_currentPhaseIndex];
+    final currentColor = _phaseColors[_currentPhaseIndex];
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(isBn ? 'শ্বাস-প্রশ্বাসের ব্যায়াম' : 'Breathing Exercise', style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          isBn ? 'শ্বাসের ব্যায়াম' : 'Breathing Exercise',
+          style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18),
+        ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            // Score & Timer Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildMetricBadge(isBn ? 'চক্র' : 'Cycles', '$_completedCycles'),
-                  _buildMetricBadge(isBn ? 'স্কোর' : 'Score', '+$_score'),
-                  _buildMetricBadge(isBn ? 'সময়' : 'Time', '${_secondsElapsed}s'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.purple.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.stars_rounded, color: Color(0xFFF59E0B), size: 20),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${_completedCycles * 10} Score',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.loop_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$_completedCycles ${isBn ? "সাইকেল" : "Cycles"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              const Spacer(),
+            ),
 
-              // Breathing Animated Circle
-              AnimatedBuilder(
-                animation: _scaleAnim,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnim.value,
-                    child: Container(
-                      width: 220,
-                      height: 220,
+            // Animated Breathing Circle with Aura Glow
+            AnimatedBuilder(
+              animation: _scaleAnimation,
+              builder: (context, child) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer aura ring 1
+                    Container(
+                      width: 260 * _scaleAnimation.value,
+                      height: 260 * _scaleAnimation.value,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(
+                        color: currentColor.withOpacity(0.12),
+                      ),
+                    ),
+                    // Outer aura ring 2
+                    Container(
+                      width: 210 * _scaleAnimation.value,
+                      height: 210 * _scaleAnimation.value,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: currentColor.withOpacity(0.22),
+                      ),
+                    ),
+                    // Center Breathing Circle
+                    Container(
+                      width: 170 * _scaleAnimation.value,
+                      height: 170 * _scaleAnimation.value,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
                           colors: [
-                            AppColors.primary.withOpacity(0.8),
-                            AppColors.secondary.withOpacity(0.9),
+                            currentColor.withOpacity(0.9),
+                            currentColor,
                           ],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.4),
-                            blurRadius: 30 * _scaleAnim.value,
-                            spreadRadius: 10 * _scaleAnim.value,
+                            color: currentColor.withOpacity(0.4),
+                            blurRadius: 30,
+                            spreadRadius: 5,
                           ),
                         ],
                       ),
                       child: Center(
-                        child: Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.2),
-                          ),
-                          child: const Icon(Icons.air_rounded, color: Colors.white, size: 60),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              currentPhaseText,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${_secondsLeftInPhase}s',
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 40),
+                  ],
+                );
+              },
+            ),
 
-              Text(
-                isBn ? _phaseTextBn : _phaseTextEn,
-                textAlign: TextAlign.center,
-                style: AppTypography.heading2(context),
-              ),
-              const Spacer(),
-
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isPlaying ? AppColors.danger : AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            // Control & Progress Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isPlaying ? Colors.amber.shade700 : AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: _togglePlayPause,
+                        icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white),
+                        label: Text(
+                          _isPlaying ? (isBn ? 'পজ' : 'Pause') : (isBn ? 'চালু করুন' : 'Resume'),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: _finishExercise,
+                        child: Text(
+                          isBn ? 'শেষ করুন' : 'Finish',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                    ],
                   ),
-                  onPressed: _isPlaying ? _stopExercise : _startExercise,
-                  child: Text(
-                    _isPlaying
-                        ? (isBn ? 'সেশন শেষ করুন' : 'Finish Exercise')
-                        : (isBn ? 'শুরু করুন' : 'Start Exercise'),
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMetricBadge(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary)),
-        ],
       ),
     );
   }

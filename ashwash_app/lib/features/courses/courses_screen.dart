@@ -25,7 +25,7 @@ class CoursesScreen extends StatelessWidget {
           List<CourseModel> courseList = [];
 
           if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-            courseList = snapshot.data!.docs.map((doc) {
+            courseList = snapshot.data!.docs.map<CourseModel>((doc) {
               final data = doc.data() as Map<String, dynamic>;
               return CourseModel(
                 id: doc.id.hashCode,
@@ -33,9 +33,7 @@ class CoursesScreen extends StatelessWidget {
                 titleBn: data['titleBn'] ?? 'মানসিক স্বাস্থ্য ও সুস্থতা',
                 descriptionEn: data['descriptionEn'] ?? 'Comprehensive course for daily mental resilience.',
                 descriptionBn: data['descriptionBn'] ?? 'দৈনন্দিন মানসিক শক্তি অর্জনের জন্য পূর্ণাঙ্গ কোর্স।',
-                durationWeeks: data['durationWeeks'] ?? 6,
-                totalTasks: data['totalTasks'] ?? 10,
-                typeLabel: data['typeLabel'] ?? 'Both',
+                duration: '${data['durationWeeks'] ?? 6} Weeks',
                 price: (data['price'] ?? 0.0).toDouble(),
                 isFree: data['isFree'] ?? true,
                 rating: (data['rating'] ?? 4.9).toDouble(),

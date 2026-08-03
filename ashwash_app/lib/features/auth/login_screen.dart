@@ -20,16 +20,36 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController(text: '12345678');
   bool _isLoading = false;
 
+  String? _emailError;
+  String? _passwordError;
+
   void _handleLogin() async {
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+    });
+
+    final langProvider = Provider.of<AppLanguageProvider>(context, listen: false);
+    final isBn = langProvider.isBangla;
+
     final email = _emailController.text.trim();
     final pass = _passwordController.text.trim();
 
-    if (email.isEmpty || pass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email and password')),
-      );
-      return;
+    bool hasError = false;
+    if (email.isEmpty) {
+      setState(() => _emailError = isBn ? 'ইউজারনেম অথবা ইমেইল দেওয়া আবশ্যিক' : 'Email is required');
+      hasError = true;
     }
+
+    if (pass.isEmpty) {
+      setState(() => _passwordError = isBn ? 'পাসওয়ার্ড প্রদান করা আবশ্যিক' : 'Password is required');
+      hasError = true;
+    } else if (pass.length < 6) {
+      setState(() => _passwordError = isBn ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে' : 'Password must be at least 6 characters');
+      hasError = true;
+    }
+
+    if (hasError) return;
 
     setState(() => _isLoading = true);
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -41,7 +61,55 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
         MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
       );
+    } else if (mounted) {
+      setState(() {
+        _emailError = isBn ? 'ইউজারনেম বা ইমেইল সঠিক নয়' : 'Incorrect email or username';
+        _passwordError = isBn ? 'পাসওয়ার্ডটি ভুল হয়েছে' : 'Incorrect password';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isBn
+                ? 'লগইন তথ্য ভুল দেওয়া হয়েছে! চিহ্নিত লাল ফিল্ডগুলো চেক করুন।'
+                : 'Incorrect credentials! Please check highlighted red fields.',
+          ),
+          backgroundColor: AppColors.emergency,
+        ),
+      );
     }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    final langProvider = Provider.of<AppLanguageProvider>(context, listen: false);
+    final isBn = langProvider.isBangla;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isBn ? 'গুগল অ্যাকাউন্ট দিয়ে সফলভাবে লগইন হয়েছে!' : 'Logged in with Google successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
+    );
+  }
+
+  Future<void> _handleFacebookLogin() async {
+    final langProvider = Provider.of<AppLanguageProvider>(context, listen: false);
+    final isBn = langProvider.isBangla;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isBn ? 'ফেসবুক অ্যাকাউন্ট দিয়ে সফলভাবে লগইন হয়েছে!' : 'Logged in with Facebook successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
+    );
   }
 
   @override
@@ -100,9 +168,22 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                onChanged: (val) {
+                  if (_emailError != null) setState(() => _emailError = null);
+                },
                 decoration: InputDecoration(
                   labelText: isBn ? 'ইমেইল' : 'Email',
                   prefixIcon: const Icon(Icons.email_outlined),
+                  errorText: _emailError,
+                  errorStyle: const TextStyle(color: AppColors.emergency, fontWeight: FontWeight.bold),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.emergency, width: 2),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.emergency, width: 1.5),
+                  ),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
@@ -112,9 +193,22 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _passwordController,
                 obscureText: true,
+                onChanged: (val) {
+                  if (_passwordError != null) setState(() => _passwordError = null);
+                },
                 decoration: InputDecoration(
                   labelText: isBn ? 'পাসওয়ার্ড' : 'Password',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  errorText: _passwordError,
+                  errorStyle: const TextStyle(color: AppColors.emergency, fontWeight: FontWeight.bold),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.emergency, width: 2),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.emergency, width: 1.5),
+                  ),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
@@ -164,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      onPressed: () => _handleLogin(),
+                      onPressed: () => _handleGoogleLogin(),
                       icon: Container(
                         width: 26,
                         height: 26,
@@ -194,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      onPressed: () => _handleLogin(),
+                      onPressed: () => _handleFacebookLogin(),
                       icon: const Icon(Icons.facebook, color: Colors.blue, size: 22),
                       label: const Text('Facebook', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
                     ),

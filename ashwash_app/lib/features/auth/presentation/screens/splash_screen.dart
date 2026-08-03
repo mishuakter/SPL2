@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/specialist_provider.dart';
+import '../../../specialist/presentation/screens/complete_specialist_profile_screen.dart';
+import '../../../specialist/presentation/screens/specialist_dashboard_screen.dart';
 import 'onboarding_screen.dart';
-import 'category_selection_screen.dart';
+import 'login_screen.dart';
+import '../../../navigation/presentation/screens/main_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -41,16 +46,40 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(milliseconds: 2500));
     if (!mounted) return;
 
+    final prefs = await SharedPreferences.getInstance();
+    final bool hasCompletedOnboarding = prefs.getBool('has_completed_onboarding') ?? false;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.isAuthenticated) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
-      );
-    } else {
+
+    if (!hasCompletedOnboarding) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
+    } else if (authProvider.isAuthenticated) {
+      final userRole = (authProvider.currentUser?.role ?? '').toUpperCase();
+      if (userRole == 'SPECIALIST' || userRole == 'DOCTOR') {
+        final specProvider = Provider.of<SpecialistProvider>(context, listen: false);
+        if (!specProvider.profile.isProfileComplete) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const CompleteSpecialistProfileScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const SpecialistDashboardScreen()),
+          );
+        }
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        );
+      }
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     }
   }
@@ -74,8 +103,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 110,
-                  height: 110,
+                  width: 130,
+                  height: 130,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -87,13 +116,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       )
                     ],
                   ),
-                  child: const Center(
-                    child: Text(
-                      'আ',
-                      style: TextStyle(
-                        fontSize: 64,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                  child: ClipOval(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),

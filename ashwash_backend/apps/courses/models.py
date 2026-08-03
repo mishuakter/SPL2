@@ -3,9 +3,12 @@ from django.conf import settings
 from apps.authentication.models import Category
 
 class Course(models.Model):
+    instructor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='created_courses')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
     title_en = models.CharField(max_length=255)
     title_bn = models.CharField(max_length=255)
+    subtitle_en = models.CharField(max_length=255, blank=True, default='')
+    subtitle_bn = models.CharField(max_length=255, blank=True, default='')
     description_en = models.TextField()
     description_bn = models.TextField()
     duration_weeks = models.IntegerField(default=4)
@@ -14,6 +17,9 @@ class Course(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) # 0 for Free
     is_free = models.BooleanField(default=True)
     rating = models.DecimalField(max_digits=3, decimal_places=1, default=4.9)
+    thumbnail_url = models.URLField(max_length=1000, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return self.title_en
@@ -36,7 +42,7 @@ class Lesson(models.Model):
     title_bn = models.CharField(max_length=255)
     content_en = models.TextField(blank=True)
     content_bn = models.TextField(blank=True)
-    video_url = models.URLField(blank=True, default='')
+    video_url = models.URLField(max_length=1000, blank=True, default='')
     duration_minutes = models.IntegerField(default=15)
     order = models.IntegerField(default=1)
 

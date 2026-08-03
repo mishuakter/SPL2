@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/dashboard_provider.dart';
 import '../../../dashboard/presentation/screens/dashboard_screen.dart';
+import '../../../community/community_screen.dart';
+import '../../../chat/ai_chat_placeholder_screen.dart';
+import '../../../profile/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -14,11 +17,11 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const Center(child: Text('Community Hub (Module 7)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-    const Center(child: Text('AI Assistant Chat (Module 7)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-    const Center(child: Text('User Profile & Settings (Module 8)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+  final List<Widget> _screens = const [
+    DashboardScreen(),
+    CommunityScreen(),
+    AIChatPlaceholderScreen(),
+    ProfileScreen(),
   ];
 
   @override

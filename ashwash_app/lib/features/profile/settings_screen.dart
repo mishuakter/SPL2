@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_typography.dart';
 import '../../core/localization/app_language_provider.dart';
+import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_service.dart';
 import '../../core/theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -14,6 +15,329 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushNotifications = true;
+
+  Future<void> _showChangePasswordSheet(BuildContext context, bool isBn) async {
+    final oldPasswordCtrl = TextEditingController();
+    final newPasswordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
+    bool obscureOld = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isLoading = false;
+    String? errorMessage;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 28),
+                      const SizedBox(width: 12),
+                      Text(
+                        isBn ? 'পাসওয়ার্ড পরিবর্তন করুন' : 'Change Password',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  if (errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.emergency.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        errorMessage!,
+                        style: const TextStyle(color: AppColors.emergency, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextField(
+                    controller: oldPasswordCtrl,
+                    obscureText: obscureOld,
+                    decoration: InputDecoration(
+                      labelText: isBn ? 'বর্তমান পাসওয়ার্ড' : 'Current Password',
+                      prefixIcon: const Icon(Icons.lock_clock_outlined),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureOld ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setSheetState(() => obscureOld = !obscureOld),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: newPasswordCtrl,
+                    obscureText: obscureNew,
+                    decoration: InputDecoration(
+                      labelText: isBn ? 'নতুন পাসওয়ার্ড' : 'New Password',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setSheetState(() => obscureNew = !obscureNew),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: confirmPasswordCtrl,
+                    obscureText: obscureConfirm,
+                    decoration: InputDecoration(
+                      labelText: isBn ? 'নতুন পাসওয়ার্ড নিশ্চিত করুন' : 'Confirm New Password',
+                      prefixIcon: const Icon(Icons.check_circle_outline_rounded),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setSheetState(() => obscureConfirm = !obscureConfirm),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            final oldPass = oldPasswordCtrl.text.trim();
+                            final newPass = newPasswordCtrl.text.trim();
+                            final confirmPass = confirmPasswordCtrl.text.trim();
+
+                            if (oldPass.isEmpty || newPass.isEmpty) {
+                              setSheetState(() => errorMessage = isBn ? 'সকল ঘর পুরন করুন' : 'Please fill all fields');
+                              return;
+                            }
+                            if (newPass.length < 6) {
+                              setSheetState(() => errorMessage = isBn ? 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন' : 'Password must be at least 6 characters');
+                              return;
+                            }
+                            if (newPass != confirmPass) {
+                              setSheetState(() => errorMessage = isBn ? 'নতুন পাসওয়ার্ড দুটি মিলছে না' : 'New passwords do not match');
+                              return;
+                            }
+
+                            setSheetState(() {
+                              isLoading = true;
+                              errorMessage = null;
+                            });
+
+                            try {
+                              final response = await ApiService.post(
+                                ApiEndpoints.changePassword,
+                                {
+                                  'old_password': oldPass,
+                                  'new_password': newPass,
+                                  'confirm_password': confirmPass,
+                                },
+                                requireAuth: true,
+                              );
+
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(response['detail'] ?? (isBn ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!' : 'Password updated successfully!')),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              setSheetState(() {
+                                isLoading = false;
+                                errorMessage = e.toString().replaceAll('Exception: ', '');
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: isLoading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(
+                            isBn ? 'পাসওয়ার্ড আপডেট করুন' : 'Update Password',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showPrivacySettingsSheet(BuildContext context, bool isBn) async {
+    bool allowAnonymous = true;
+    bool shareAnalytics = true;
+    bool dataConsent = true;
+    bool isLoading = true;
+    bool isSaving = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            if (isLoading) {
+              ApiService.get(ApiEndpoints.privacySettings, requireAuth: true).then((data) {
+                setSheetState(() {
+                  allowAnonymous = data['allow_anonymous_posts'] ?? true;
+                  shareAnalytics = data['share_progress_analytics'] ?? true;
+                  dataConsent = data['data_usage_consent'] ?? true;
+                  isLoading = false;
+                });
+              }).catchError((_) {
+                setSheetState(() => isLoading = false);
+              });
+            }
+
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.privacy_tip_outlined, color: AppColors.primary, size: 28),
+                      const SizedBox(width: 12),
+                      Text(
+                        isBn ? 'গোপনীয়তা সেটিংস' : 'Privacy Settings',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                    )
+                  else ...[
+                    SwitchListTile(
+                      title: Text(isBn ? 'কমিউনিটিতে পরিচয় গোপন রাখা' : 'Anonymous Community Posts'),
+                      subtitle: Text(isBn ? 'নাম প্রকাশ না করে পোস্টে মন্তব্য ও শেয়ার করা' : 'Share posts without revealing identity'),
+                      activeColor: AppColors.primary,
+                      value: allowAnonymous,
+                      onChanged: (val) => setSheetState(() => allowAnonymous = val),
+                    ),
+                    SwitchListTile(
+                      title: Text(isBn ? 'অ্যানোনিমাস প্রোগ্রেস অ্যানালিটিক্স' : 'Share Progress Analytics'),
+                      subtitle: Text(isBn ? 'ব্যক্তিগত সাজেশনের জন্য ডেটা অ্যানালাইসিস' : 'Allow analytics for personalized recommendations'),
+                      activeColor: AppColors.primary,
+                      value: shareAnalytics,
+                      onChanged: (val) => setSheetState(() => shareAnalytics = val),
+                    ),
+                    SwitchListTile(
+                      title: Text(isBn ? 'ডেটা ব্যবহারের সম্মতি' : 'Data Usage Consent'),
+                      subtitle: Text(isBn ? 'আপনার ডেটা নিরাপদে সংকেত ও ব্যবহারের অধিকার' : 'Consent to process data securely for mental wellness'),
+                      activeColor: AppColors.primary,
+                      value: dataConsent,
+                      onChanged: (val) => setSheetState(() => dataConsent = val),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setSheetState(() => isSaving = true);
+                              try {
+                                await ApiService.post(
+                                  ApiEndpoints.privacySettings,
+                                  {
+                                    'allow_anonymous_posts': allowAnonymous,
+                                    'share_progress_analytics': shareAnalytics,
+                                    'data_usage_consent': dataConsent,
+                                  },
+                                  requireAuth: true,
+                                );
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(isBn ? 'গোপনীয়তা সেটিংস সফলভাবে আপডেট হয়েছে!' : 'Privacy settings saved successfully!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setSheetState(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(e.toString().replaceAll('Exception: ', '')),
+                                    backgroundColor: AppColors.emergency,
+                                  ),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: isSaving
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text(
+                              isBn ? 'গোপনীয়তা সেটিংস সেভ করুন' : 'Save Privacy Settings',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,13 +416,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
             title: Text(isBn ? 'পাসওয়ার্ড পরিবর্তন' : 'Change Password'),
             subtitle: Text(isBn ? 'আপনার পাসওয়ার্ড আপডেট করুন' : 'Update your password'),
-            onTap: () {},
+            onTap: () => _showChangePasswordSheet(context, isBn),
           ),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.primary),
             title: Text(isBn ? 'গোপনীয়তা সেটিংস' : 'Privacy Settings'),
             subtitle: Text(isBn ? 'আপনার তথ্য ও ডেটা পরিচালনা করুন' : 'Manage your data and privacy'),
-            onTap: () {},
+            onTap: () => _showPrivacySettingsSheet(context, isBn),
           ),
           const SizedBox(height: 20),
 

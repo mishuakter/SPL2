@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/language_provider.dart';
 import 'login_screen.dart';
@@ -71,7 +72,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _goToLogin() {
+  Future<void> _goToLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_completed_onboarding', true);
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -191,7 +195,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black90,
+                            color: Colors.black87,
                           ),
                         ),
                         const SizedBox(height: 12),

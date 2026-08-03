@@ -1,9 +1,41 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_typography.dart';
 import '../../core/localization/app_language_provider.dart';
-import '../../core/services/mind_games_repository.dart';
+import '../../core/services/game_score_service.dart';
+
+class EmotionItem {
+  final String id;
+  final String emoji;
+  final String nameEn;
+  final String nameBn;
+  final Color color;
+
+  EmotionItem({
+    required this.id,
+    required this.emoji,
+    required this.nameEn,
+    required this.nameBn,
+    required this.color,
+  });
+}
+
+class SituationTarget {
+  final String id;
+  final String emotionId;
+  final String situationEn;
+  final String situationBn;
+  EmotionItem? matchedEmotion;
+
+  SituationTarget({
+    required this.id,
+    required this.emotionId,
+    required this.situationEn,
+    required this.situationBn,
+    this.matchedEmotion,
+  });
+}
 
 class MoodMatchScreen extends StatefulWidget {
   const MoodMatchScreen({Key? key}) : super(key: key);
@@ -14,283 +46,449 @@ class MoodMatchScreen extends StatefulWidget {
 
 class _MoodMatchScreenState extends State<MoodMatchScreen> {
   int _score = 0;
-  int _currentIndex = 0;
-  String? _selectedMood;
-  bool _showFeedback = false;
-  bool _isCorrect = false;
+  int _secondsElapsed = 0;
+  Timer? _timer;
+  bool _isCompleted = false;
 
-  final MindGamesRepository _repo = MindGamesRepository();
-
-  final List<Map<String, String>> _questions = [
-    {
-      'situationEn': 'Achieving your daily mindfulness goal',
-      'situationBn': 'আপনার দৈনিক মাইন্ডফুলনেস লক্ষ্য অর্জন',
-      'correctMood': 'Happy',
-      'emoji': '😊',
-    },
-    {
-      'situationEn': 'Feeling overwhelmed before a big exam or presentation',
-      'situationBn': 'পরীক্ষা বা প্রেজেন্টেশনের আগে মানসিক চাপ অনুভব করা',
-      'correctMood': 'Anxious',
-      'emoji': '😰',
-    },
-    {
-      'situationEn': 'Listening to soft ocean waves during meditation',
-      'situationBn': 'মেডিটেশনের সময় শান্ত সাগরের ঢেউয়ের শব্দ শোনা',
-      'correctMood': 'Calm',
-      'emoji': '🧘',
-    },
-    {
-      'situationEn': 'Losing an important project or missing a goal',
-      'situationBn': 'একটি গুরুত্বপূর্ণ প্রজেক্টে ব্যর্থ হওয়া',
-      'correctMood': 'Sad',
-      'emoji': '😔',
-    },
-    {
-      'situationEn': 'Receiving unexpected good news from a family member',
-      'situationBn': 'পরিবারের সদস্যের কাছ থেকে অপ্রত্যাশিত শুভ সংবাদ পাওয়া',
-      'correctMood': 'Excited',
-      'emoji': '😃',
-    },
+  final List<EmotionItem> _emotions = [
+    EmotionItem(id: 'happy', emoji: '😄', nameEn: 'Happy', nameBn: 'খুশি', color: const Color(0xFFF59E0B)),
+    EmotionItem(id: 'calm', emoji: '🧘', nameEn: 'Calm', nameBn: 'প্রশান্ত', color: const Color(0xFF10B981)),
+    EmotionItem(id: 'excited', emoji: '🥳', nameEn: 'Excited', nameBn: 'উত্তেজিত', color: const Color(0xFFA855F7)),
+    EmotionItem(id: 'anxious', emoji: '😰', nameEn: 'Anxious', nameBn: 'উদ্বিগ্ন', color: const Color(0xFF3B82F6)),
+    EmotionItem(id: 'sad', emoji: '😢', nameEn: 'Sad', nameBn: 'দুঃখিত', color: const Color(0xFF64748B)),
+    EmotionItem(id: 'angry', emoji: '😡', nameEn: 'Angry', nameBn: 'রাগান্বিত', color: const Color(0xFFEF4444)),
   ];
 
-  final List<Map<String, String>> _moodOptions = [
-    {'mood': 'Happy', 'emoji': '😊'},
-    {'mood': 'Anxious', 'emoji': '😰'},
-    {'mood': 'Calm', 'emoji': '🧘'},
-    {'mood': 'Sad', 'emoji': '😔'},
-    {'mood': 'Excited', 'emoji': '😃'},
-    {'mood': 'Angry', 'emoji': '😠'},
-  ];
+  late List<SituationTarget> _targets;
+  late List<EmotionItem> _availableEmotions;
 
-  void _onMoodSelect(String mood) {
-    if (_showFeedback) return;
-
-    final currentQuestion = _questions[_currentIndex];
-    final correct = mood == currentQuestion['correctMood'];
-
-    setState(() {
-      _selectedMood = mood;
-      _showFeedback = true;
-      _isCorrect = correct;
-      if (correct) {
-        _score += 5;
-      }
-    });
-
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (!mounted) return;
-      if (_currentIndex < _questions.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _showFeedback = false;
-          _selectedMood = null;
-        });
-      } else {
-        _onGameComplete();
-      }
-    });
+  @override
+  void initState() {
+    super.initState();
+    _initGame();
   }
 
-  void _onGameComplete() async {
-    await _repo.saveGameScore(
-      gameId: 'mood_match',
-      score: _score,
-      durationSeconds: 45,
-    );
+  void _initGame() {
+    _timer?.cancel();
+    _score = 0;
+    _secondsElapsed = 0;
+    _isCompleted = false;
 
-    if (mounted) {
-      _showCompletionDialog();
+    _availableEmotions = List.from(_emotions)..shuffle();
+
+    _targets = [
+      SituationTarget(
+        id: '1',
+        emotionId: 'anxious',
+        situationEn: 'Feeling nervous before an important presentation or test',
+        situationBn: 'গুরুত্বপূর্ণ পরীক্ষা বা প্রেজেন্টেশনের আগে দুশ্চিন্তা হওয়া',
+      ),
+      SituationTarget(
+        id: '2',
+        emotionId: 'happy',
+        situationEn: 'Meeting a dear old friend after a long time',
+        situationBn: 'দীর্ঘদিন পর প্রিয় কোনো মানুষের সাথে দেখা হওয়া',
+      ),
+      SituationTarget(
+        id: '3',
+        emotionId: 'calm',
+        situationEn: 'Feeling peaceful after completing a 4-7-8 breathing session',
+        situationBn: 'মাইন্ডফুলনেস ও শ্বাসের ব্যায়ামের পর হালকা অনুভূতি',
+      ),
+      SituationTarget(
+        id: '4',
+        emotionId: 'excited',
+        situationEn: 'Getting an offer letter for your dream achievement',
+        situationBn: 'স্বপ্নের কোনো কাজে বড় সাফল্য বা অফার পাওয়া',
+      ),
+      SituationTarget(
+        id: '5',
+        emotionId: 'sad',
+        situationEn: 'Losing a favourite memory item unexpectedly',
+        situationBn: 'নিজের কোনো প্রিয় স্মারক বস্তু হারিয়ে যাওয়া',
+      ),
+      SituationTarget(
+        id: '6',
+        emotionId: 'angry',
+        situationEn: 'Facing unfair treatment or unexpected obstacles',
+        situationBn: 'অহেতুক কোনো বাধার সম্মুখীন হওয়া বা বিরক্ত বোধ করা',
+      ),
+    ]..shuffle();
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!_isCompleted) {
+        setState(() {
+          _secondsElapsed++;
+        });
+      }
+    });
+
+    setState(() {});
+  }
+
+  void _checkGameCompletion() {
+    bool allMatched = _targets.every((t) => t.matchedEmotion != null);
+    if (allMatched && !_isCompleted) {
+      _isCompleted = true;
+      _timer?.cancel();
+      _onGameFinished();
     }
   }
 
-  void _showCompletionDialog() {
+  Future<void> _onGameFinished() async {
+    final gameData = await GameScoreService.saveScore(
+      gameId: 'mood_match',
+      score: _score,
+      durationSeconds: _secondsElapsed,
+    );
+
+    if (mounted) {
+      _showEncouragementDialog(gameData);
+    }
+  }
+
+  void _showEncouragementDialog(GameScoreData gameData) {
     final isBn = Provider.of<AppLanguageProvider>(context, listen: false).isBangla;
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Column(
+          children: [
+            const Icon(Icons.celebration_rounded, color: Color(0xFFF59E0B), size: 48),
+            const SizedBox(height: 10),
+            Text(
+              isBn ? 'দুর্দান্ত মানসিক ম্যাচ!' : 'Awesome Emotion Match!',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F172A)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isBn
+                  ? 'আপনি অনুভূতির সঠিক বোধগম্যতা অর্জন করেছেন। নিজের আবেগকে চেনা মানসিক সুস্থতার প্রথম ধাপ!'
+                  : 'You successfully matched all emotional states! Understanding your feelings is the first step to mental wellness.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAFAFA),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  _buildResultRow(isBn ? 'অর্জিত পয়েন্ট' : 'Score Earned', '+$_score Points'),
+                  const Divider(height: 16),
+                  _buildResultRow(isBn ? 'সময় লেগেছে' : 'Time Taken', '${_secondsElapsed}s'),
+                  const Divider(height: 16),
+                  _buildResultRow(isBn ? 'সেরা স্কোর' : 'Best Score', '${gameData.bestScore} Points'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(color: Color(0xFFFEF3C7), shape: BoxShape.circle),
-                child: const Icon(Icons.stars_rounded, color: AppColors.warning, size: 48),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                isBn ? 'চমৎকার সম্পন্ন হয়েছে!' : 'Great Emotional Awareness!',
-                style: AppTypography.heading1(context),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isBn
-                    ? 'আপনি বিভিন্ন পরিস্থিতির সাথে সঠিক আবেগ শনাক্ত করতে পেরেছেন!'
-                    : 'You accurately matched emotional responses to situations!',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  isBn ? 'মোট অর্জিত পয়েন্ট: +$_score' : 'Total Points: +$_score',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primary),
+              Expanded(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text(isBn ? 'হোম পেজ' : 'Exit', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                 ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
+              Expanded(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pop(context);
+                    Navigator.pop(ctx);
+                    _initGame();
                   },
-                  child: Text(isBn ? 'সম্পন্ন' : 'Complete', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(isBn ? 'আবার খেলুন' : 'Replay', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
+  }
+
+  Widget _buildResultRow(String label, String val) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+        Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isBn = Provider.of<AppLanguageProvider>(context).isBangla;
-    final currentQ = _questions[_currentIndex];
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(isBn ? 'মুড ম্যাচ' : 'Mood Match', style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          isBn ? 'মুড ম্যাচ (Drag & Drop)' : 'Mood Match',
+          style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.primary, size: 26),
+            onPressed: _initGame,
+          ),
+        ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          children: [
+            // Score & Timer Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${_currentIndex + 1} / ${_questions.length}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
-                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.amber.shade200),
                     ),
-                    child: Text(
-                      isBn ? 'স্কোর: +$_score' : 'Score: +$_score',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.stars_rounded, color: Color(0xFFF59E0B), size: 20),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$_score Points',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                      ],
                     ),
+                  ),
+                  Text(
+                    isBn ? 'উপযুক্ত ইমোজিটি টেনে নিচের বাক্সে বসান' : 'Drag emotion badge into matching scenario',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: (_currentIndex + 1) / _questions.length,
-                  minHeight: 6,
-                  backgroundColor: Colors.grey.shade200,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                ),
-              ),
-              const SizedBox(height: 30),
+            ),
 
-              Container(
-                padding: const EdgeInsets.all(24),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                ),
-                child: Column(
-                  children: [
-                    const Text('🤔', style: TextStyle(fontSize: 48)),
-                    const SizedBox(height: 14),
-                    Text(
-                      isBn ? currentQ['situationBn']! : currentQ['situationEn']!,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.heading2(context),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              Text(
-                isBn ? 'উপযুক্ত আবেগ নির্বাচন করুন:' : 'Match with the correct emotion:',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-              const SizedBox(height: 14),
-
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 2.2,
-                  ),
-                  itemCount: _moodOptions.length,
-                  itemBuilder: (context, index) {
-                    final item = _moodOptions[index];
-                    final mood = item['mood']!;
-                    final isSelected = _selectedMood == mood;
-
-                    Color cardBg = Theme.of(context).cardColor;
-                    Color borderColor = Colors.grey.shade300;
-
-                    if (_showFeedback && isSelected) {
-                      cardBg = _isCorrect ? AppColors.success.withOpacity(0.15) : AppColors.danger.withOpacity(0.15);
-                      borderColor = _isCorrect ? AppColors.success : AppColors.danger;
-                    }
-
-                    return GestureDetector(
-                      onTap: () => _onMoodSelect(mood),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(item['emoji']!, style: const TextStyle(fontSize: 22)),
-                            const SizedBox(width: 8),
-                            Text(mood, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ],
+            // Draggable Emotion Badges Row
+            Container(
+              height: 75,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _availableEmotions.length,
+                itemBuilder: (context, idx) {
+                  final emotion = _availableEmotions[idx];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12.0),
+                    child: Draggable<EmotionItem>(
+                      data: emotion,
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: emotion.color,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(color: emotion.color.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(emotion.emoji, style: const TextStyle(fontSize: 22)),
+                              const SizedBox(width: 8),
+                              Text(
+                                isBn ? emotion.nameBn : emotion.nameEn,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: _buildEmotionBadge(emotion, isBn),
+                      ),
+                      child: _buildEmotionBadge(emotion, isBn),
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+
+            // Target Situation Cards List
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                itemCount: _targets.length,
+                itemBuilder: (context, idx) {
+                  final target = _targets[idx];
+                  final bool isMatched = target.matchedEmotion != null;
+
+                  return DragTarget<EmotionItem>(
+                    onAccept: (receivedEmotion) {
+                      if (receivedEmotion.id == target.emotionId) {
+                        setState(() {
+                          target.matchedEmotion = receivedEmotion;
+                          _availableEmotions.removeWhere((e) => e.id == receivedEmotion.id);
+                          _score += 5;
+                        });
+                        _checkGameCompletion();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isBn ? 'সঠিক উত্তর! (+৫ পয়েন্ট)' : 'Correct Match! (+5 Points)'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isBn ? 'ভুল উত্তর, আবার চেষ্টা করুন!' : 'Incorrect match, try again!'),
+                            backgroundColor: Colors.redAccent,
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      }
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isMatched ? target.matchedEmotion!.color.withOpacity(0.08) : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isMatched
+                                ? target.matchedEmotion!.color
+                                : (candidateData.isNotEmpty ? AppColors.primary : Colors.grey.shade200),
+                            width: isMatched || candidateData.isNotEmpty ? 2 : 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                isBn ? target.situationBn : target.situationEn,
+                                style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF334155)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            if (isMatched)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: target.matchedEmotion!.color,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(target.matchedEmotion!.emoji, style: const TextStyle(fontSize: 18)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isBn ? target.matchedEmotion!.nameBn : target.matchedEmotion!.nameEn,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                width: 90,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    isBn ? 'ড্রপ করুন' : 'Drop here',
+                                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmotionBadge(EmotionItem item, bool isBn) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: item.color,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: item.color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(item.emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 6),
+          Text(
+            isBn ? item.nameBn : item.nameEn,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+        ],
       ),
     );
   }

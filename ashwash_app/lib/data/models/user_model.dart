@@ -4,12 +4,14 @@ class UserModel {
   final String email;
   final String firstName;
   final String lastName;
+  final String role;
   final String? phone;
   final int totalPoints;
   final int sessionsAttended;
   final int tasksCompleted;
   final String? avatar;
   final String? bio;
+  final String? preferredCategory;
 
   UserModel({
     required this.id,
@@ -17,12 +19,14 @@ class UserModel {
     required this.email,
     required this.firstName,
     required this.lastName,
+    this.role = 'PATIENT',
     this.phone,
-    required this.totalPoints,
-    required this.sessionsAttended,
-    required this.tasksCompleted,
+    this.totalPoints = 450,
+    this.sessionsAttended = 5,
+    this.tasksCompleted = 1,
     this.avatar,
     this.bio,
+    this.preferredCategory = 'First Time Mother',
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -32,12 +36,14 @@ class UserModel {
       email: json['email'] ?? '',
       firstName: json['first_name'] ?? '',
       lastName: json['last_name'] ?? '',
+      role: json['role'] ?? 'PATIENT',
       phone: json['phone'],
       totalPoints: json['total_points'] ?? 450,
       sessionsAttended: json['sessions_attended'] ?? 5,
       tasksCompleted: json['tasks_completed'] ?? 1,
       avatar: json['avatar'],
       bio: json['bio'],
+      preferredCategory: json['category'] ?? json['preferred_category'] ?? 'First Time Mother',
     );
   }
 }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_typography.dart';
 import '../../core/localization/app_language_provider.dart';
-import '../../core/services/mind_games_repository.dart';
+import '../../core/services/game_score_service.dart';
 import 'breathing_exercise_screen.dart';
 import 'memory_match_screen.dart';
 import 'mood_match_screen.dart';
@@ -16,27 +15,29 @@ class MindGamesHubScreen extends StatefulWidget {
 }
 
 class _MindGamesHubScreenState extends State<MindGamesHubScreen> {
-  final MindGamesRepository _repo = MindGamesRepository();
-  int _breathingBest = 0;
-  int _memoryBest = 0;
-  int _moodBest = 0;
+  GameScoreData? _breathingData;
+  GameScoreData? _memoryData;
+  GameScoreData? _moodData;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadScores();
+    _loadAllGameScores();
   }
 
-  void _loadScores() async {
-    final bBest = await _repo.getBestScore('breathing');
-    final mBest = await _repo.getBestScore('memory_match');
-    final moBest = await _repo.getBestScore('mood_match');
+  Future<void> _loadAllGameScores() async {
+    setState(() => _isLoading = true);
+    final breathing = await GameScoreService.getGameData('breathing_exercise');
+    final memory = await GameScoreService.getGameData('memory_match');
+    final mood = await GameScoreService.getGameData('mood_match');
 
     if (mounted) {
       setState(() {
-        _breathingBest = bBest;
-        _memoryBest = mBest;
-        _moodBest = moBest;
+        _breathingData = breathing;
+        _memoryData = memory;
+        _moodData = mood;
+        _isLoading = false;
       });
     }
   }
@@ -46,95 +47,189 @@ class _MindGamesHubScreenState extends State<MindGamesHubScreen> {
     final isBn = Provider.of<AppLanguageProvider>(context).isBangla;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 20,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
-          isBn ? 'মাইন্ড গেমস' : 'Mind Games',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          isBn ? 'মাইন্ড গেমসমূহ (Mind Games)' : 'Mind Games Hub',
+          style: const TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(
-              isBn ? 'মানসিক প্রশান্তি ও অনুশীলনী' : 'Mental Wellness & Focus Games',
-              style: AppTypography.heading1(context),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isBn
-                  ? 'বিজ্ঞানভিত্তিক মাইন্ডফুলনেস গেমের মাধ্যমে চাপ কমান ও মনোযোগ বাড়ান'
-                  : 'Reduce stress & boost focus with science-backed mindfulness games',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : RefreshIndicator(
+              onRefresh: _loadAllGameScores,
+              color: AppColors.primary,
+              child: ListView(
+                padding: const EdgeInsets.all(20.0),
+                children: [
+                  // Banner Header Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFC084FC), Color(0xFFA855F7), Color(0xFF7C3AED)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFA855F7).withOpacity(0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.psychology_rounded, color: Colors.white, size: 28),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isBn ? 'মাইন্ডফুলনেস ও ব্রেইন ট্রেইনিং' : 'Wellness & Brain Training',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  Text(
+                                    isBn ? 'খেলে খেলে মানসিক চাপ কমান ও মনোযোগ বাড়ান' : 'Reduce stress and improve focus while playing',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
-            // Game 1 Card: Breathing Exercise
-            _buildGameCard(
-              title: isBn ? 'শ্বাস-প্রশ্বাসের ব্যায়াম' : 'Breathing Exercise',
-              subtitle: isBn ? 'ইনহেল (৪সে) • হোল্ড (৪সে) • এক্সহেল (৪সে)' : 'Inhale (4s) • Hold (4s) • Exhale (4s)',
-              imagePath: 'assets/images/breathing_exercise_icon.jpg',
-              bestScore: _breathingBest,
-              gradientColors: [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const BreathingExerciseScreen()));
-                _loadScores();
-              },
-            ),
-            const SizedBox(height: 16),
+                  Text(
+                    isBn ? 'গেম নির্বাচন করুন' : 'SELECT A MIND GAME',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade500,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
 
-            // Game 2 Card: Memory Match
-            _buildGameCard(
-              title: isBn ? 'মেমরি ম্যাচ' : 'Memory Match',
-              subtitle: isBn ? 'কার্ড উল্টে জোড়া মিলানোর অনুশীলন' : 'Flip cards to match wellness symbols',
-              imagePath: 'assets/images/memory_match_icon.jpg',
-              bestScore: _memoryBest,
-              gradientColors: [const Color(0xFFEC4899), const Color(0xFFBE185D)],
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const MemoryMatchScreen()));
-                _loadScores();
-              },
-            ),
-            const SizedBox(height: 16),
+                  // GAME 1: Breathing Exercise
+                  _buildGameCard(
+                    context,
+                    title: isBn ? 'শ্বাসের ব্যায়াম (Breathing Exercise)' : 'Breathing Exercise',
+                    subtitle: isBn ? '৪-৪-৪ রিদ্যমিক শ্বাসের মাধ্যমে প্রশান্তি' : '4-4-4 Rhythmic cycle for instant calm & relaxation',
+                    imagePath: 'assets/images/breathing_exercise_icon.jpg',
+                    accentColor: const Color(0xFF8B5CF6),
+                    bestScore: _breathingData?.bestScore ?? 0,
+                    playCount: _breathingData?.playCount ?? 0,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const BreathingExerciseScreen()),
+                      );
+                      _loadAllGameScores();
+                    },
+                  ),
+                  const SizedBox(height: 16),
 
-            // Game 3 Card: Mood Match
-            _buildGameCard(
-              title: isBn ? 'মুড ম্যাচ' : 'Mood Match',
-              subtitle: isBn ? 'পরিস্থিতির সাথে সঠিক আবেগ ম্যাচ করুন' : 'Match emotions with daily scenarios',
-              imagePath: 'assets/images/mood_match_icon.jpg',
-              bestScore: _moodBest,
-              gradientColors: [const Color(0xFFF97316), const Color(0xFFC2410C)],
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const MoodMatchScreen()));
-                _loadScores();
-              },
+                  // GAME 2: Memory Match
+                  _buildGameCard(
+                    context,
+                    title: isBn ? 'মেমোরি ম্যাচ (Memory Match)' : 'Memory Match',
+                    subtitle: isBn ? 'ওয়েলনেস কার্ড মেলাুন ও স্মৃতিশক্তি বাড়ান' : 'Match beautiful wellness cards & train focus',
+                    imagePath: 'assets/images/memory_match_icon.jpg',
+                    accentColor: const Color(0xFF3B82F6),
+                    bestScore: _memoryData?.bestScore ?? 0,
+                    playCount: _memoryData?.playCount ?? 0,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MemoryMatchScreen()),
+                      );
+                      _loadAllGameScores();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // GAME 3: Mood Match
+                  _buildGameCard(
+                    context,
+                    title: isBn ? 'মুড ম্যাচ (Mood Match)' : 'Mood Match',
+                    subtitle: isBn ? 'বাস্তব জীবনের পরিস্থিতির সাথে আবেগ মেলান' : 'Drag & Drop matching emotions with situations',
+                    imagePath: 'assets/images/mood_match_icon.jpg',
+                    accentColor: const Color(0xFF10B981),
+                    bestScore: _moodData?.bestScore ?? 0,
+                    playCount: _moodData?.playCount ?? 0,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MoodMatchScreen()),
+                      );
+                      _loadAllGameScores();
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildGameCard({
+  Widget _buildGameCard(
+    BuildContext context, {
     required String title,
     required String subtitle,
     required String imagePath,
+    required Color accentColor,
     required int bestScore,
-    required List<Color> gradientColors,
+    required int playCount,
     required VoidCallback onTap,
   }) {
+    final isBn = Provider.of<AppLanguageProvider>(context, listen: false).isBangla;
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.grey.shade200, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.35),
-            blurRadius: 12,
+            color: accentColor.withOpacity(0.08),
+            blurRadius: 14,
             offset: const Offset(0, 6),
           ),
         ],
@@ -143,11 +238,12 @@ class _MindGamesHubScreenState extends State<MindGamesHubScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
+                // Custom Generated 3D Glassmorphism Image Icon
                 ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: Image.asset(
@@ -155,38 +251,84 @@ class _MindGamesHubScreenState extends State<MindGamesHubScreen> {
                     width: 72,
                     height: 72,
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 72,
+                        height: 72,
+                        color: accentColor.withOpacity(0.15),
+                        child: Icon(Icons.psychology_rounded, color: accentColor, size: 36),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 16),
+
+                // Card Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          height: 1.3,
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Best Score: $bestScore',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$bestScore Pts',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: accentColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$playCount ${isBn ? "বার খেলা হয়েছে" : "Played"}',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: accentColor),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
+
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 18,
+                  color: Colors.grey,
+                ),
               ],
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/language_provider.dart';
+import '../../../specialist/presentation/screens/complete_specialist_profile_screen.dart';
 import 'category_selection_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -30,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _usernameController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -42,6 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.register(
+      username: _usernameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
       firstName: _firstNameController.text.trim(),
@@ -52,11 +56,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
-        (route) => false,
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Specialist Registration Successful! Complete your professional profile to continue.'),
+          backgroundColor: Colors.green,
+        ),
       );
+      if (_selectedRole == 'SPECIALIST' || _selectedRole == 'JUNIOR_PANEL') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CompleteSpecialistProfileScreen()),
+          (route) => false,
+        );
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
+          (route) => false,
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -98,6 +116,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // Username Field
+                Text(isBn ? 'ইউজারনেম' : 'Username', style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    hintText: 'johndoe',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) return 'Username cannot be empty.';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
                 // First Name & Last Name Row
                 Row(
                   children: [
@@ -110,7 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _firstNameController,
                             decoration: const InputDecoration(hintText: 'John'),
-                            validator: (val) => (val == null || val.isEmpty) ? 'Required' : null,
+                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
                           ),
                         ],
                       ),
@@ -125,7 +159,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _lastNameController,
                             decoration: const InputDecoration(hintText: 'Doe'),
-                            validator: (val) => (val == null || val.isEmpty) ? 'Required' : null,
+                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
                           ),
                         ],
                       ),
@@ -144,7 +178,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hintText: 'name@example.com',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
-                  validator: (val) => (val == null || !val.contains('@')) ? 'Enter a valid email' : null,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) return 'Please enter an email address.';
+                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!emailRegex.hasMatch(val.trim())) return 'Please enter a valid email address.';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -155,14 +194,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    hintText: 'At least 8 characters',
+                    hintText: 'At least 6 characters',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  validator: (val) => (val == null || val.length < 8) ? 'Minimum 8 characters required' : null,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Password cannot be empty.';
+                    if (val.length < 6) return 'Password must contain at least 6 characters.';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 

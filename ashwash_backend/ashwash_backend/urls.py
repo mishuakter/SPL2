@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/community/', include('apps.community.urls')),
     path('api/payments/', include('apps.payments.urls')),
     path('api/dashboard/', include('apps.dashboard.urls')),
+    path('api/notifications/', include('apps.notifications.urls')),
 ]
 
 if settings.DEBUG:

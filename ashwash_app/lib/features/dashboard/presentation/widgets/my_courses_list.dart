@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/dashboard_provider.dart';
 import '../../../../core/providers/language_provider.dart';
+import '../../../../core/services/api_service.dart';
+import '../../../courses/presentation/screens/course_detail_screen.dart';
 
 class MyCoursesList extends StatelessWidget {
   final VoidCallback onViewAll;
@@ -55,76 +57,90 @@ class MyCoursesList extends StatelessWidget {
             final int total = course['total_lessons'] ?? 1;
             final int progress = course['progress_percentage'] ?? 0;
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.cardDark : AppColors.cardLight,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x08000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    course['title'] ?? 'Course Title',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+            return GestureDetector(
+              onTap: () {
+                final apiService = ApiService();
+                final mockCourses = apiService.getMockCourses();
+                final target = mockCourses.firstWhere(
+                  (c) => c.id == (course['id'] ?? 1),
+                  orElse: () => mockCourses.first,
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => CourseDetailScreen(course: target)),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.cardDark : AppColors.cardLight,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x08000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    course['description'] ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Progress Bar & Lesson Count
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '$completed/$total lessons',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      course['title'] ?? 'Course Title',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Text(
-                        '$progress%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Linear Progress Bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: progress / 100.0,
-                      backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-                      color: AppColors.primary,
-                      minHeight: 8,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      course['description'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Progress Bar & Lesson Count
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '$completed/$total lessons',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        Text(
+                          '$progress%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Linear Progress Bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress / 100.0,
+                        backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                        color: AppColors.primary,
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },

@@ -71,23 +71,14 @@ class DashboardProvider with ChangeNotifier {
       // Fallback default values matching Figma prototype screenshots
       _enrolledCourses = [
         {
-          'id': 101,
-          'title': 'New Mother Wellness Program',
-          'description': 'Comprehensive support for first-time mothers covering postpartum care, bonding, and self-care.',
+          'id': 1,
+          'title': 'Postpartum Depression Recovery Program',
+          'description': 'Comprehensive 6-week guided recovery for new mothers covering symptoms, bonding, and coping.',
           'completed_lessons': 2,
-          'total_lessons': 5,
-          'progress_percentage': 40,
+          'total_lessons': 17,
+          'progress_percentage': 25,
           'format': 'Both',
         },
-        {
-          'id': 102,
-          'title': 'Postpartum Mental Health',
-          'description': 'Understanding and managing postpartum depression and anxiety for new mothers.',
-          'completed_lessons': 1,
-          'total_lessons': 2,
-          'progress_percentage': 50,
-          'format': 'Video',
-        }
       ];
     } finally {
       _isLoading = false;

@@ -12,6 +12,9 @@ class AppColors {
   static const Color cardLight = Color(0xFFFFFFFF);
   static const Color cardDark = Color(0xFF1F2937);
 
+  static const Color darkBackground = bgDark;
+  static const Color darkSurface = cardDark;
+
   static const Color textPrimaryLight = Color(0xFF111827);
   static const Color textSecondaryLight = Color(0xFF6B7280);
   static const Color textPrimaryDark = Color(0xFFF9FAFB);
@@ -23,4 +26,17 @@ class AppColors {
   static const Color categoryBlue = Color(0xFF3B82F6);
   static const Color categoryOrange = Color(0xFFF97316);
   static const Color categoryTeal = Color(0xFF14B8A6);
+
+  // Category Aliases
+  static const Color categoryMother = categoryPink;
+  static const Color categorySingleParent = categoryPurple;
+  static const Color categorySpecialChild = categoryBlue;
+  static const Color categoryCorporate = categoryOrange;
+  static const Color categoryStudent = categoryTeal;
+
+  // Surface & Input Colors
+  static const Color surfaceLight = Color(0xFFFFFFFF);
+  static const Color surfaceDark = Color(0xFF1F2937);
+  static const Color emergency = Color(0xFFDC2626);
+  static const Color inputBgLight = Color(0xFFF3F4F6);
 }
