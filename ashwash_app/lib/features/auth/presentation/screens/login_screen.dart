@@ -4,9 +4,6 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/language_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
-import '../../../../core/providers/specialist_provider.dart';
-import '../../../specialist/presentation/screens/complete_specialist_profile_screen.dart';
-import '../../../specialist/presentation/screens/specialist_dashboard_screen.dart';
 import 'register_screen.dart';
 import 'category_selection_screen.dart';
 
@@ -63,32 +60,15 @@ class _LoginScreenState extends State<LoginScreen> {
     if (hasError) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.login(email, password, role: _selectedRole);
+    final success = await authProvider.login(email, password, role: 'PATIENT');
 
     if (!mounted) return;
 
     if (success) {
-      final user = authProvider.currentUser;
-      final isSpecialistRole = _selectedRole == 'SPECIALIST' || user?.role == 'SPECIALIST' || user?.role == 'DOCTOR';
-      if (isSpecialistRole) {
-        final specProvider = Provider.of<SpecialistProvider>(context, listen: false);
-        if (!specProvider.profile.isProfileComplete) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const CompleteSpecialistProfileScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const SpecialistDashboardScreen()),
-          );
-        }
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
-        );
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
+      );
     } else {
       final err = (authProvider.errorMessage ?? '').toLowerCase();
       setState(() {
@@ -297,64 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Role Selector Segmented Bar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _selectedRole = 'PATIENT'),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: _selectedRole == 'PATIENT' ? AppColors.primary : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    isBn ? '🌸 রোগী / পেশেন্ট' : '🌸 Patient',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: _selectedRole == 'PATIENT' ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _selectedRole = 'SPECIALIST'),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: _selectedRole == 'SPECIALIST' ? AppColors.primary : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    isBn ? '🩺 সাইকোলজিস্ট' : '🩺 Specialist',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: _selectedRole == 'SPECIALIST' ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    // Form Inputs
 
                     Text(
                       isBn ? 'ইউজারনেম অথবা ইমেইল' : 'Username or Email',

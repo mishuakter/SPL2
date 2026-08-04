@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/language_provider.dart';
-import '../../../specialist/presentation/screens/complete_specialist_profile_screen.dart';
 import 'category_selection_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -21,14 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  String _selectedRole = 'PATIENT';
   bool _obscurePassword = true;
-
-  final Map<String, String> _roles = {
-    'PATIENT': 'Patient / Care Seeker',
-    'SPECIALIST': 'Specialist / Psychologist',
-    'JUNIOR_PANEL': 'Junior Panel Member',
-  };
 
   @override
   void dispose() {
@@ -50,7 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: _passwordController.text.trim(),
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
-      role: _selectedRole,
+      role: 'PATIENT',
     );
 
     if (!mounted) return;
@@ -58,23 +50,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Specialist Registration Successful! Complete your professional profile to continue.'),
+          content: Text('Registration Successful! Welcome to Ashwash.'),
           backgroundColor: Colors.green,
         ),
       );
-      if (_selectedRole == 'SPECIALIST' || _selectedRole == 'JUNIOR_PANEL') {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const CompleteSpecialistProfileScreen()),
-          (route) => false,
-        );
-      } else {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
-          (route) => false,
-        );
-      }
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const CategorySelectionScreen()),
+        (route) => false,
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -99,20 +83,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  isBn ? 'আশ্বাস প্ল্যাটফর্মে যোগ দিন' : 'Join Ashwash Platform',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  isBn ? 'আশ্বাস-এ আপনাকে স্বাগতম 🌸' : 'Welcome to Ashwash 🌸',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
-                  isBn ? 'আপনার সঠিক তথ্য দিয়ে নিচের ফরমটি পূরণ করুন' : 'Fill in your personal details below',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  isBn ? 'আপনার মানসিক সুস্থতার যাত্রায় অংশ নিন' : 'Join our supportive mental wellness community',
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
 
@@ -122,17 +106,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _usernameController,
                   decoration: const InputDecoration(
-                    hintText: 'johndoe',
+                    hintText: 'e.g. john_doe',
                     prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Username cannot be empty.';
-                    return null;
-                  },
+                  validator: (val) => (val == null || val.trim().isEmpty) ? 'Please enter a username.' : null,
                 ),
                 const SizedBox(height: 16),
 
-                // First Name & Last Name Row
+                // First & Last Name
                 Row(
                   children: [
                     Expanded(
@@ -205,26 +186,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (val == null || val.isEmpty) return 'Password cannot be empty.';
                     if (val.length < 6) return 'Password must contain at least 6 characters.';
                     return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Role Dropdown Selection
-                Text(isBn ? 'ব্যবহারকারীর ভূমিকা' : 'Select User Role', style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.badge_outlined),
-                  ),
-                  items: _roles.entries.map((entry) {
-                    return DropdownMenuItem<String>(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedRole = val);
                   },
                 ),
                 const SizedBox(height: 32),

@@ -107,8 +107,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
       final String url = _selectedTag == 'All'
           ? ApiEndpoints.posts
           : '${ApiEndpoints.posts}?tag=$_selectedTag';
-      final List<dynamic> data = await ApiService.getList(url, requireAuth: true);
-      final apiPosts = data.map((item) => item as Map<String, dynamic>).toList();
+      final List<dynamic> data = await ApiService.getList(url, requireAuth: false);
+      final apiPosts = data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
 
       if (apiPosts.isNotEmpty) {
         _posts = List<Map<String, dynamic>>.from(apiPosts);
@@ -303,7 +303,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final bool isLiked = post['is_liked'] ?? false;
     final int likesCount = post['likes_count'] ?? 0;
     final List commentsList = post['comments'] ?? [];
-    final int commentsCount = commentsList.length;
+    final int rawCommentsCount = post['comments_count'] ?? 0;
+    final int commentsCount = rawCommentsCount > commentsList.length ? rawCommentsCount : commentsList.length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -625,7 +626,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  // Comments Sheet - Persisted Globally
+  // Comments Sheet - Fetched Live from Backend
   void _showCommentsSheet(BuildContext context, Map<String, dynamic> post, bool isBn) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
@@ -634,6 +635,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final commentCtrl = TextEditingController();
     List<dynamic> comments = List.from(post['comments'] ?? []);
     bool isPosting = false;
+    bool isFetchingLive = true;
+
+    final int postId = post['id'] is int ? post['id'] : (int.tryParse(post['id'].toString()) ?? 0);
 
     showModalBottomSheet(
       context: context,
@@ -642,6 +646,22 @@ class _CommunityScreenState extends State<CommunityScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            if (isFetchingLive && postId > 0) {
+              ApiService.getList('${ApiEndpoints.baseUrl}/community/posts/', requireAuth: false).then((data) {
+                if (data.isNotEmpty) {
+                  final target = data.firstWhere((p) => p['id'] == postId, orElse: () => null);
+                  if (target != null && target['comments'] != null) {
+                    setSheetState(() {
+                      comments = List.from(target['comments']);
+                      isFetchingLive = false;
+                    });
+                  }
+                }
+              }).catchError((_) {
+                setSheetState(() => isFetchingLive = false);
+              });
+            }
+
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom + 20,

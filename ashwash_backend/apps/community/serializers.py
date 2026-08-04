@@ -9,7 +9,7 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['id', 'post', 'author', 'author_name', 'author_alias', 'author_role', 'is_doctor', 'content', 'created_at']
-        read_only_fields = ['id', 'author', 'author_alias', 'created_at']
+        read_only_fields = ['id', 'post', 'author', 'author_alias', 'created_at']
 
     def get_author_name(self, obj):
         if obj.author:

@@ -51,6 +51,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 elif expected_role == 'PATIENT' and user.role not in [User.Role.PATIENT]:
                     raise serializers.ValidationError({"detail": "Access Denied: This account is registered as a Specialist."})
 
+            # Check pending approval for specialist accounts
+            if user.role in [User.Role.SPECIALIST, User.Role.DOCTOR] and not (user.is_staff or user.is_superuser):
+                sp = SpecialistProfile.objects.filter(user=user).first()
+                if sp and not sp.is_profile_complete:
+                    raise serializers.ValidationError({"detail": "Your Specialist Application is PENDING review and approval by the Administrator. Access will be granted once an Admin approves your account."})
+
             refresh = self.get_token(user)
             user_data = UserSerializer(user).data
 
